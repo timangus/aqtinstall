@@ -406,7 +406,7 @@ class Cli:
 
         def get_auto_desktop_archives() -> List[QtPackage]:
             def to_archives(baseurl: str) -> QtArchives:
-                return QtArchives(os_name, "desktop", qt_version, cast(str, autodesk_arch), base=baseurl, timeout=timeout)
+                return QtArchives("linux", "desktop", qt_version, cast(str, autodesk_arch), base=baseurl, timeout=timeout)
 
             if autodesk_arch is not None:
                 return cast(QtArchives, retry_on_bad_connection(to_archives, base)).archives
@@ -449,7 +449,7 @@ class Cli:
         if not nopatch:
             Updater.update(target_config, base_path, expect_desktop_archdir)
             if autodesk_arch is not None:
-                d_target_config = TargetConfig(str(_version), "desktop", autodesk_arch, os_name)
+                d_target_config = TargetConfig(str(_version), "desktop", autodesk_arch, "linux")
                 Updater.update(d_target_config, base_path, expect_desktop_archdir)
         self.logger.info("Finished installation")
         self.logger.info("Time elapsed: {time:.8f} second".format(time=time.perf_counter() - start_time))
@@ -738,12 +738,12 @@ class Cli:
 
     def _set_install_tool_parser(self, install_tool_parser, *, is_legacy: bool):
         install_tool_parser.set_defaults(func=self.run_install_tool, is_legacy=is_legacy)
-        install_tool_parser.add_argument("host", choices=["linux", "linux_arm64", "mac", "windows"], help="host os name")
+        install_tool_parser.add_argument("host", choices=["all_os", "linux", "linux_arm64", "mac", "windows"], help="host os name")
         if not is_legacy:
             install_tool_parser.add_argument(
                 "target",
                 default=None,
-                choices=["desktop", "winrt", "android", "ios"],
+                choices=["wasm", "desktop", "winrt", "android", "ios"],
                 help="Target SDK.",
             )
         install_tool_parser.add_argument("tool_name", help="Name of tool such as tools_ifw, tools_mingw")
@@ -795,7 +795,7 @@ class Cli:
 
         def make_parser_list_sde(cmd: str, desc: str, cmd_type: str):
             parser = subparsers.add_parser(cmd, description=desc)
-            parser.add_argument("host", choices=["linux", "linux_arm64", "mac", "windows"], help="host os name")
+            parser.add_argument("host", choices=["all_os", "linux", "linux_arm64", "mac", "windows"], help="host os name")
             parser.add_argument(
                 "qt_version_spec",
                 metavar="(VERSION | SPECIFICATION)",
@@ -843,12 +843,12 @@ class Cli:
             "$ aqt list-qt mac desktop --archives 5.9.0 clang_64              # list archives in base Qt installation\n"
             "$ aqt list-qt mac desktop --archives 5.14.0 clang_64 debug_info  # list archives in debug_info module\n",
         )
-        list_parser.add_argument("host", choices=["linux", "linux_arm64", "mac", "windows"], help="host os name")
+        list_parser.add_argument("host", choices=["all_os", "linux", "linux_arm64", "mac", "windows"], help="host os name")
         list_parser.add_argument(
             "target",
             nargs="?",
             default=None,
-            choices=["desktop", "winrt", "android", "ios"],
+            choices=["wasm", "desktop", "winrt", "android", "ios"],
             help="Target SDK. When omitted, this prints all the targets available for a host OS.",
         )
         list_parser.add_argument(
@@ -927,12 +927,12 @@ class Cli:
             "$ aqt list-tool mac desktop tools_ifw --long  # print tool variant names with metadata for QtIFW\n"
             "$ aqt list-tool mac desktop ifw --long        # print tool variant names with metadata for QtIFW\n",
         )
-        list_parser.add_argument("host", choices=["linux", "linux_arm64", "mac", "windows"], help="host os name")
+        list_parser.add_argument("host", choices=["all_os", "linux", "linux_arm64", "mac", "windows"], help="host os name")
         list_parser.add_argument(
             "target",
             nargs="?",
             default=None,
-            choices=["desktop", "winrt", "android", "ios"],
+            choices=["wasm", "desktop", "winrt", "android", "ios"],
             help="Target SDK. When omitted, this prints all the targets available for a host OS.",
         )
         list_parser.add_argument(
@@ -1014,17 +1014,17 @@ class Cli:
         """
         if is_legacy:
             subparser.add_argument("qt_version", help='Qt version in the format of "5.X.Y"')
-        subparser.add_argument("host", choices=["linux", "linux_arm64", "mac", "windows"], help="host os name")
+        subparser.add_argument("host", choices=["all_os", "linux", "linux_arm64", "mac", "windows"], help="host os name")
         if is_target_deprecated:
             subparser.add_argument(
                 "target",
-                choices=["desktop", "winrt", "android", "ios"],
+                choices=["wasm", "desktop", "winrt", "android", "ios"],
                 nargs="?",
                 help="Ignored. This parameter is deprecated and marked for removal in a future release. "
                 "It is present here for backwards compatibility.",
             )
         else:
-            subparser.add_argument("target", choices=["desktop", "winrt", "android", "ios"], help="target sdk")
+            subparser.add_argument("target", choices=["wasm", "desktop", "winrt", "android", "ios"], help="target sdk")
         if not is_legacy:
             subparser.add_argument(
                 "qt_version_spec",
@@ -1093,7 +1093,7 @@ class Cli:
             self.logger.info(f"Found installed {host}-desktop Qt at {installed_desktop_arch_dir}")
             return installed_desktop_arch_dir.name, None
 
-        default_desktop_arch = MetadataFactory(ArchiveId("qt", host, "desktop")).fetch_default_desktop_arch(version, is_msvc)
+        default_desktop_arch = MetadataFactory(ArchiveId("qt", host, "desktop")).fetch_default_desktop_arch(version, is_msvc, is_wasm)
         desktop_arch_dir = QtRepoProperty.get_arch_dir_name(host, default_desktop_arch, version)
         expected_desktop_arch_path = base_path / dir_for_version(version) / desktop_arch_dir
 

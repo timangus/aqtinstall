@@ -199,8 +199,9 @@ def get_semantic_version(qt_ver: str, is_preview: bool) -> Optional[Version]:
 
 class ArchiveId:
     CATEGORIES = ("tools", "qt")
-    HOSTS = ("windows", "mac", "linux", "linux_arm64")
+    HOSTS = ("all_os", "windows", "mac", "linux", "linux_arm64")
     TARGETS_FOR_HOST = {
+        "all_os": ["wasm", "desktop"],
         "windows": ["android", "desktop", "winrt"],
         "mac": ["android", "desktop", "ios"],
         "linux": ["android", "desktop"],
@@ -232,7 +233,7 @@ class ArchiveId:
     def to_url(self) -> str:
         return "online/qtsdkrepository/{os}{arch}/{target}/".format(
             os=self.host,
-            arch=("_x86" if self.host == "windows" else ("" if self.host == "linux_arm64" else "_x64")),
+            arch=("_x86" if self.host == "windows" else ("" if self.host == "linux_arm64" or self.target == "wasm" else "_x64")),
             target=self.target,
         )
 
@@ -933,9 +934,9 @@ class MetadataFactory:
             return str(self.archive_id)
         return "{} with spec {}".format(self.archive_id, self.spec)
 
-    def fetch_default_desktop_arch(self, version: Version, is_msvc: bool = False) -> str:
+    def fetch_default_desktop_arch(self, version: Version, is_msvc: bool = False, is_wasm: bool = False) -> str:
         assert self.archive_id.target == "desktop", "This function is meant to fetch desktop architectures"
-        if self.archive_id.host == "linux":
+        if self.archive_id.host == "linux" or is_wasm:
             if version >= Version("6.7.0"):
                 return "linux_gcc_64"
             else:
